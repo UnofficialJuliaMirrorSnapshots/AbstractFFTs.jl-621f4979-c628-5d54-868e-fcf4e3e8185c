@@ -246,13 +246,7 @@ size(p::ScaledPlan) = size(p.p)
 show(io::IO, p::ScaledPlan) = print(io, p.scale, " * ", p.p)
 summary(p::ScaledPlan) = string(p.scale, " * ", summary(p.p))
 
-if VERSION >= v"0.7.0-DEV.3665"
-    *(p::ScaledPlan, x::AbstractArray) = LinearAlgebra.rmul!(p.p * x, p.scale)
-elseif VERSION >= v"0.7.0-DEV.3563"
-    *(p::ScaledPlan, x::AbstractArray) = LinearAlgebra.mul1!(p.p * x, p.scale)
-else
-    *(p::ScaledPlan, x::AbstractArray) = scale!(p.p * x, p.scale)
-end
+*(p::ScaledPlan, x::AbstractArray) = LinearAlgebra.rmul!(p.p * x, p.scale)
 
 *(α::Number, p::Plan) = ScaledPlan(p, α)
 *(p::Plan, α::Number) = ScaledPlan(p, α)
@@ -272,16 +266,8 @@ plan_ifft!(x::AbstractArray, region; kws...) =
 
 plan_inv(p::ScaledPlan) = ScaledPlan(plan_inv(p.p), inv(p.scale))
 
-if VERSION >= v"0.7.0-DEV.3665"
-    LinearAlgebra.mul!(y::AbstractArray, p::ScaledPlan, x::AbstractArray) =
-        LinearAlgebra.lmul!(p.scale, LinearAlgebra.mul!(y, p.p, x))
-elseif VERSION >= v"0.7.0-DEV.3563"
-    LinearAlgebra.mul!(y::AbstractArray, p::ScaledPlan, x::AbstractArray) =
-        LinearAlgebra.mul2!(p.scale, LinearAlgebra.mul!(y, p.p, x))
-else
-    LinearAlgebra.mul!(y::AbstractArray, p::ScaledPlan, x::AbstractArray) =
-        scale!(p.scale, LinearAlgebra.mul!(y, p.p, x))
-end
+LinearAlgebra.mul!(y::AbstractArray, p::ScaledPlan, x::AbstractArray) =
+    LinearAlgebra.lmul!(p.scale, LinearAlgebra.mul!(y, p.p, x))
 
 ##############################################################################
 # Real-input DFTs are annoying because the output has a different size
@@ -363,11 +349,19 @@ plan_irfft
 fftshift(x) = circshift(x, div.([size(x)...],2))
 
 """
-    fftshift(x)
+    fftshift(x, [dim])
 
-Swap the first and second halves of each dimension of `x`.
+Circular-shift along the given dimension of a periodic signal `x` centered at
+index `1` so it becomes centered at index `N÷2+1`, where `N` is the size of
+that dimension.
+
+This can be undone with [`ifftshift`](@ref). For even `N` this is equivalent to
+swapping the first and second halves, so `fftshift` and [`ifftshift`](@ref) are
+the same.
+
+If `dim` is not given then the signal is shifted along each dimension.
 """
-fftshift(x)
+fftshift
 
 function fftshift(x,dim)
     s = zeros(Int,ndims(x))
@@ -377,19 +371,20 @@ function fftshift(x,dim)
     circshift(x, s)
 end
 
-"""
-    fftshift(x,dim)
-
-Swap the first and second halves of the given dimension or iterable of dimensions of array `x`.
-"""
-fftshift(x,dim)
-
 ifftshift(x) = circshift(x, div.([size(x)...],-2))
 
 """
     ifftshift(x, [dim])
 
-Undoes the effect of `fftshift`.
+Circular-shift along the given dimension of a periodic signal `x` centered at
+index `N÷2+1` so it becomes centered at index `1`, where `N` is the size of
+that dimension.
+
+This undoes the effect of [`fftshift`](@ref). For even `N` this is equivalent to
+swapping the first and second halves, so [`fftshift`](@ref) and `ifftshift` are
+the same.
+
+If `dim` is not given then the signal is shifted along each dimension.
 """
 ifftshift
 
